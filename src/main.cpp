@@ -299,11 +299,11 @@ int main(int argc, char* argv[])
     LoadShadersFromFiles();
 
     // Carregamos duas imagens para serem utilizadas como textura
-    LoadTextureImage("../../data/tc-earth_daymap_surface.jpg");      // TextureImage0
+    LoadTextureImage("../../data/grass.jpg");      // TextureImage0
     LoadTextureImage("../../data/sky.jpg"); // TextureImage1
     LoadTextureImage("../../data/basketball.png"); //TextureImage2
     LoadTextureImage("../../data/grass.jpg");
-    LoadTextureImage("../../data/crowd.jpg");
+    LoadTextureImage("../../data/grass.jpg");
     LoadTextureImage("../../data/cesta.jpg");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
@@ -561,7 +561,7 @@ int main(int argc, char* argv[])
         else if(!arremessado && !trajetoria)
         {
             glm::vec4 ballpos = camera_position_c + scalarproduct(camera_view_vector,15);
-            model = Matrix_Translate(ballpos.x, ballpos.y - 1.0, ballpos.z)
+            model = Matrix_Translate(ballpos.x, ballpos.y - 0.8, ballpos.z)
     //              * Matrix_Rotate_Z(0.0f)
     //              * Matrix_Rotate_X(0.0f)
     //              * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.01f)
@@ -589,7 +589,7 @@ int main(int argc, char* argv[])
         //ordem de operacao srt
 
         // Desenhamos a vaca
-        model = Matrix_Translate(0.0f,0.55f,0.0f) * Matrix_Scale(1.0f,1.0f,1.0f);
+        model = Matrix_Translate(0.0f,1.85f,0.0f) * Matrix_Scale(3.0f,3.0f,3.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, COW);
         DrawVirtualObject("cow");
