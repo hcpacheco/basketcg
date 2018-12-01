@@ -42,6 +42,9 @@
 // Headers da biblioteca para carregar modelos obj
 #include <tiny_obj_loader.h>
 
+//Header da biblioteca de som
+#include <sound/irrKlang.h>
+
 #include <stb_image.h>
 
 // Headers locais, definidos na pasta "include/"
@@ -57,14 +60,37 @@ float g_CameraTheta = -2.5f; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = -0.5f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 2.5f; // Distância da câmera para a origem
 
-glm::vec4 camera_position_c = glm::vec4(2.5f,2.5f,2.5f,1.0f);
+glm::vec4 camera_position_c = glm::vec4(2.5f,3.5f,2.5f,1.0f);
 glm::vec4 camera_u_vector;
 glm::vec4 camera_view_vector;
 glm::vec4 camera_lookat_l;
 glm::vec4 camera_desloc = glm::vec4(0.0f,0.0,0.0f,0.0f);
 glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+glm::vec4 step;
+
+glm::vec4 camera_position_cb = glm::vec4(0.5f,0.0f,-30.0f,1.0);
+glm::vec4 camera_view_vectorb;
+glm::vec4 camera_lookat_lb;
+
+bool walkingForward = false;
+bool walkingBack = false;
+bool strafeLeft = false;
+bool strafeRight = false;
+float speedRatio = 0.5f;
+bool lookAt = false;
+
+//controlada pelo input da tecla e
+bool running= false;
+float camera_speed = 2.5f;
+
+//variavel usada para controlar a velocidade da animacao de acordo com fps
+float delay;
+float startTime;
+float endTime;
 
 
+
+glm::vec4 posicao_cesta = glm::vec4(0.5f,0.0f,-30.0f,1.0);
 //Pontos de controle da curva de Bezier que define a trajetoria do objeto
 //glm::vec4 pc0 = glm::vec4(2.0f,0.0,2.0f,1.0f);
 //glm::vec4 pc1 = glm::vec4(1.95f,1.6f,1.8f,1.0f);
@@ -74,11 +100,21 @@ glm::vec4 pc0;
 glm::vec4 pc1;
 glm::vec4 pc2;
 glm::vec4 pc3;
-bool arremessado = false;
-bool trajetoria  = false;
+bool arremessado;
+bool trajetoria;
+bool bolaPerdida;
+glm::vec4 sentidoPerdido;
 float tB = 0.0f;
-bool contaForca = true;
+float velocidadeBola;
+bool contaForca;
 float forca;
+
+//variamos a posicao do balao em funcao do tempo
+glm::vec3 posicaoBalao;
+float velocidadeBalao = 0.0f;
+
+
+bool walkSimulation = true;
 
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
@@ -135,6 +171,7 @@ void TextRendering_PrintMatrix(GLFWwindow* window, glm::mat4 M, float x, float y
 void TextRendering_PrintVector(GLFWwindow* window, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProduct(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
+void TextRendering_ShowPontos(GLFWwindow* window);
 
 // Funções abaixo renderizam como texto na janela OpenGL algumas matrizes e
 // outras informações do programa. Definidas após main().
@@ -152,6 +189,26 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+
+//Funcoes de colisao entre objetos
+bool detectaColisaoTabela(glm::vec4 ponto,glm::vec4 planoPontos[],glm::vec4 planoNormal, float raio);
+bool pontoEmSemiPlano(glm::vec4 ponto, glm::vec4 planoPontos[]);
+bool detectaColisaoCesta(glm::vec4 ponto, glm::vec4 cestaPontos[], float raio);
+bool pontoEmCubo(glm::vec4 ponto, glm::vec4 cestaPontos[]);
+float distanciaPontoPonto(glm::vec4 p1, glm::vec4 p2);
+int detectaColisaoAro(glm::vec4 ponto, glm::vec4 cestaPontos[], float raio);
+
+bool naoColidiuTabela;
+int nColidiuAro;
+bool contaPontos;
+//Funcoes de controle da curva de bezier
+glm::vec4 pontosDeControle[4];
+void calculaTrajetoria();
+void recalculaTrajetoria(glm::vec4 newDirection, glm::vec4 posicao, glm::vec4 planoNormal);
+
+glm::vec4 pbezier;
+
+glm::vec4 ballpos;
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -224,6 +281,9 @@ GLint bbox_max_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
+
+//status do jogo
+int pontos;
 
 int main(int argc, char* argv[])
 {
@@ -299,21 +359,19 @@ int main(int argc, char* argv[])
     LoadShadersFromFiles();
 
     // Carregamos duas imagens para serem utilizadas como textura
-    LoadTextureImage("../../data/grass.jpg");      // TextureImage0
-    LoadTextureImage("../../data/sky.jpg"); // TextureImage1
-    LoadTextureImage("../../data/basketball.png"); //TextureImage2
-    LoadTextureImage("../../data/grass.jpg");
-    LoadTextureImage("../../data/grass.jpg");
-    LoadTextureImage("../../data/cesta.jpg");
+    LoadTextureImage("../../data/cow.jpg");             // TextureImage0
+    LoadTextureImage("../../data/sky.jpg");             // TextureImage1
+    LoadTextureImage("../../data/basketball.png");      // TextureImage2
+    LoadTextureImage("../../data/grass.jpg");           // TextureImage3
+    LoadTextureImage("../../data/basketballcourt.png"); // TextureImage4
+    LoadTextureImage("../../data/cesta.jpg");           // TextureImage5
+    LoadTextureImage("../../data/cow2.jpg");            // TextureImage6
+
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel invspheremodel("../../data/invsphere.obj");
     ComputeNormals(&invspheremodel);
     BuildTrianglesAndAddToVirtualScene(&invspheremodel);
-
-//    ObjModel bunnymodel("../../data/bunny.obj");
-//    ComputeNormals(&bunnymodel);
-//    BuildTrianglesAndAddToVirtualScene(&bunnymodel);
 
     ObjModel planemodel("../../data/plane.obj");
     ComputeNormals(&planemodel);
@@ -335,6 +393,13 @@ int main(int argc, char* argv[])
     ComputeNormals(&cestamodel);
     BuildTrianglesAndAddToVirtualScene(&cestamodel);
 
+    ObjModel baloonmodel("../../data/baloon.obj");
+    ComputeNormals(&baloonmodel);
+    BuildTrianglesAndAddToVirtualScene(&baloonmodel);
+
+    ObjModel mountainmodel("../../data/mountain.obj");
+    ComputeNormals(&mountainmodel);
+    BuildTrianglesAndAddToVirtualScene(&mountainmodel);
 
     if ( argc > 1 )
     {
@@ -359,9 +424,57 @@ int main(int argc, char* argv[])
     glm::mat4 the_model;
     glm::mat4 the_view;
 
+
+    //Definimos variaveis de controle da logica do jogador com a bola
+    contaForca = true;
+    arremessado = false;
+    trajetoria = false;
+    bolaPerdida = false;
+
+    //Jogador comeca com 0 pontos
+    pontos = 0;
+
+    // Objetos da cena
+    #define INVSPHERE   0
+    #define PLANE       1
+    #define COW         2
+    #define CUBEV       3
+    #define SPHERE      4
+    #define CESTA       5
+    #define PLANE2      6
+    #define BALOON      7
+    #define COW2        8
+    #define MOUNTAIN    9
+
+//   irrklang::ISoundEngine* engine = irrklang::createIrrKlangDevice();
+//
+//    if(!engine)
+//        return 0; //Erro ao iniciar engine
+
+    glm::mat4 model = Matrix_Identity();
+    //Slvamos objetos usados para detectar colisao
+
+     //Salvamos dados da tabela para calculo de colisao
+    glm::vec4 tabelaNormal  = Matrix_Rotate_X(-1.5708f)*camera_up_vector;
+    //glm::vec4 tabela1Normal  = camera_up_vector;
+    //model = Matrix_Translate(posicao_cesta.x-0.4,posicao_cesta.y+6.3,posicao_cesta.z+1.0) * Matrix_Rotate_X(-1.5708f)* Matrix_Scale(1.15f,1.3f,0.7f);
+    model = Matrix_Translate(posicao_cesta.x-0.4,posicao_cesta.y+6.3,posicao_cesta.z+1.0) * Matrix_Rotate_X(-1.5708f)* Matrix_Scale(1.15f,1.0f,1.0f);
+    //pontos da tabela para calculo de colisao
+    glm::vec4 tabelaPonto00    = model*glm::vec4(-1.0f, 0.0f, -1.0f, 1.0f);
+    glm::vec4 tabelaPonto11    = model*glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
+    glm::vec4 tabelaPontos[] = {tabelaPonto00,tabelaPonto11};
+
+
+    //Salvamos dados da posicao de um cubo ao redor da cesta para calculo de colisao
+    model = Matrix_Translate(posicao_cesta.x-0.8,posicao_cesta.y+5.15,posicao_cesta.z+1.3)*Matrix_Scale(0.85f,0.85f,0.85f);
+    glm::vec4 cestaPonto00 = model*glm::vec4(0.0f,0.0f,0.0f,1.0f);
+    glm::vec4 cestaPonto11 = model*glm::vec4(1.0f,1.0f,1.0f,1.0f);
+    glm::vec4 cestaPontos[] = {cestaPonto00,cestaPonto11};
+
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
+        startTime = (float)glfwGetTime();
         // Aqui executamos as operações de renderização
 
         // Definimos a cor do "fundo" do framebuffer como branco.  Tal cor é
@@ -397,31 +510,92 @@ int main(int argc, char* argv[])
 //        camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
 //        camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
 //      alterado
-        camera_lookat_l    = glm::vec4(x,y,z,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
-        camera_lookat_l    += camera_desloc;
+        if(lookAt){
+            camera_position_cb  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
+            camera_lookat_lb    = glm::vec4(0.5f,0.0f,-30.0f,1.0); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+            camera_view_vectorb = camera_lookat_lb - camera_position_cb; // Vetor "view", sentido para onde a câmera está virada
+        }else{
+            camera_lookat_l    = glm::vec4(x,y,z,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+            camera_lookat_l    += camera_desloc;
 
-        camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
-        camera_view_vector = camera_view_vector / norm(camera_view_vector);
-        glm::vec4 camera_w_vector = -camera_view_vector;
-        camera_view_vector *= 0.1;
+            camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+            camera_view_vector = camera_view_vector / norm(camera_view_vector);
+            glm::vec4 camera_w_vector = -camera_view_vector;
+            camera_view_vector *= 0.1;
 
-        camera_u_vector = crossproduct(camera_up_vector,camera_w_vector);
-        camera_u_vector = camera_u_vector / norm(camera_u_vector);
-        camera_u_vector *= 0.1;
+            camera_u_vector = crossproduct(camera_up_vector,camera_w_vector);
+            camera_u_vector = camera_u_vector / norm(camera_u_vector);
+            camera_u_vector *= 0.1;
+        }
+
+        //BOTOES
+        if(walkingForward){
+            step = camera_view_vector;
+            if(running)
+                step = scalarproduct(step, camera_speed);
+            if(walkSimulation)
+                step.y = 0.0;
+
+            camera_position_c += step*speedRatio;
+
+            camera_desloc += step*speedRatio;
+
+        }
+        if(walkingBack){
+            step = camera_view_vector;
+            if(running)
+                step = scalarproduct(step, camera_speed);
+            if(walkSimulation)
+                step.y = 0.0;
+
+            camera_position_c -= step*speedRatio;
+
+            camera_desloc -= step*speedRatio;
+
+        }
+        if(strafeLeft){
+            step = camera_u_vector;
+            if(running)
+                step = scalarproduct(step, camera_speed);
+            if(walkSimulation)
+                step.y = 0.0;
+
+            camera_position_c -= step*speedRatio;
+
+            camera_desloc -= step*speedRatio;
+        }
+        if(strafeRight){
+            step = camera_u_vector;
+            if(running)
+                step = scalarproduct(step, camera_speed);
+            if(walkSimulation)
+                step.y = 0.0;
+
+            camera_position_c += step*speedRatio;
+
+            camera_desloc += step*speedRatio;
+
+        }
 
 
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slide 186 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
-        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+        glm::mat4 view;
+        if(!lookAt)
+            view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+        else
+            view = Matrix_Camera_View(camera_position_cb, camera_view_vectorb, camera_up_vector);
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
 
+        //Libera usuario para arremessar a bola
+
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 190-193 do documento "Aula_09_Projecoes.pdf".
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -150.0f; // Posição do "far plane"
+        float farplane  = -450.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -444,7 +618,7 @@ int main(int argc, char* argv[])
             projection = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
         }
 
-        glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
+        model = Matrix_Identity(); // Transformação identidade de modelagem
 
         // Enviamos as matrizes "view" e "projection" para a placa de vídeo
         // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
@@ -452,19 +626,13 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
         glUniformMatrix4fv(projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
-        #define INVSPHERE  0
-        #define PLANE   1
-        #define COW     2
-        #define CUBEV   3
-        #define SPHERE  4
-        #define CESTA   5
 
         // Desenhamos o modelo da esfera
-        model = Matrix_Translate(0.0f,10.0f,0.0f)
+        model = Matrix_Translate(0.0f,30.0f,0.0f)
               * Matrix_Rotate_Z(0.0f)
               * Matrix_Rotate_X(0.0f)
-              * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.01f)
-              * Matrix_Scale(40,40,50);
+              * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.01f + 1.5708f)
+              * Matrix_Scale(150,150,170);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, INVSPHERE);
         DrawVirtualObject("invsphere");
@@ -473,57 +641,20 @@ int main(int argc, char* argv[])
         float beziery = 0.0f;
         float bezierz = 0.0f;
 
-//        if(contaForca)
-//        {
-//            float yF = 20*sin(g_CameraPhi);
-//            float zF = 20*cos(g_CameraPhi)*cos(g_CameraTheta);
-//            float xF = 20*cos(g_CameraPhi)*sin(g_CameraTheta);
-//            glm::vec4 contadorPosicao = camera_position_c + scalarproduct(camera_view_vector,15);
-//            model = Matrix_Translate(xF, yF, zF)
-//                  * Matrix_Scale(0.4,0.1,0.4);
-//            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-//            glUniform1i(object_id_uniform, PLANE);
-//            DrawVirtualObject("plane");
-//
-//        }
-//        else
-//        {
-//           glm::vec4 contadorPosicao = camera_position_c+scalarproduct(camera_view_vector,15);
-//            model = Matrix_Translate(contadorPosicao.x+0.4, contadorPosicao.y+0.4, contadorPosicao.z)
-//                  //* Matrix_Rotate_Z(-1.5708f)
-//                  //* Matrix_Rotate_X(-1.5708f)
-//                  //* Matrix_Rotate_Y(-1.5708f)
-//                  * Matrix_Scale(0.4,0.1,0.4);
-//            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-//            glUniform1i(object_id_uniform, PLANE);
-//            DrawVirtualObject("plane");
-//
-//        }
         //logica do arremesso por curva de Bezier
         if(arremessado && !trajetoria)
-        //calcula valor de bezier de acordo com variacoes em t
+        //calcula valor dos pontos de controle da curva de bezier e logica de fluxo
         {
             showForca = false;
-            forca *= 0.25;
-
-            glm::vec4 amplitude = camera_up_vector;
-            amplitude = scalarproduct(amplitude, 7*forca);
 
 
-            pc0 = camera_position_c + scalarproduct(camera_view_vector,15);
-
-            pc1 = pc0 + scalarproduct(camera_view_vector,50*forca);
-            pc1 += amplitude;
-
-            pc2 = pc1 + scalarproduct(camera_view_vector,50*forca);
-
-            pc3 = pc2 +  scalarproduct(camera_view_vector,50*forca);
-            pc3 -= amplitude;
-            pc3.y = 0;
-
+            calculaTrajetoria();
 
             arremessado = false;
+            naoColidiuTabela = true;
+            nColidiuAro = 0;
             trajetoria  = true;
+            contaPontos = true;
 
         }
         if(trajetoria && !arremessado)
@@ -531,36 +662,87 @@ int main(int argc, char* argv[])
 
             float tB3 = pow((1-tB),3);
             float tB2 = pow((1-tB),2);
+            //velocidadeBola = 0.0024 - (0.0003*forca);
+            velocidadeBola = 0.0034 - (0.0003*forca);
+            //variamos a "velocidade" da bola conforme a variacao no fps
+            velocidadeBola += ((delay-0.00238)/delay )*velocidadeBola;
 
-            glm::vec4 pbezier = tB3*pc0 + 3*tB*tB2*pc1 +3*tB*tB*(1-tB)*pc2 + tB*tB*tB*pc3;
+            glm::vec4 pBezierAntigo = pbezier;
+
+
+            pbezier = tB3*pontosDeControle[0] + 3*tB*tB2*pontosDeControle[1] +3*tB*tB*(1-tB)*pontosDeControle[2] + tB*tB*tB*pontosDeControle[3];
 
             bezierx = pbezier.x;
             beziery = pbezier.y;
             bezierz = pbezier.z;
 
-            tB += 0.0007 * (1 + (1-forca));
-            if (tB > 0.95)
+            if(detectaColisaoTabela(pbezier,tabelaPontos,tabelaNormal,0.3f) && naoColidiuTabela)
             {
-                contaForca = true;
+                //printf("colisao ");
+                glm::vec4 newDirection =   pBezierAntigo - pbezier;
+                newDirection = scalarproduct(newDirection,2);
+                newDirection.w = 0.0;
+                recalculaTrajetoria(newDirection, pbezier,tabelaNormal);
+
+                naoColidiuTabela = false;
+            }
+
+            int aro = detectaColisaoAro(pbezier,cestaPontos,0.3f);
+            if(aro != 2 && nColidiuAro <= 2)
+            {
+
+                glm::vec4 newDirection =   pBezierAntigo - pbezier;
+                newDirection = scalarproduct(newDirection,2);
+
+                newDirection.w = 0.0;
+
+
+                if (aro == 1)
+                    recalculaTrajetoria(newDirection, pbezier,glm::vec4(0.0,0.0,1.0,0.0));
+                if (aro == 0)
+                    recalculaTrajetoria(newDirection, pbezier,glm::vec4(1.0,0.0,0.0,0.0));
+
+                nColidiuAro += 1;
+            }
+
+            if(detectaColisaoCesta(pbezier,cestaPontos,0.3f) && contaPontos)
+            {
+                contaPontos = false;
+                if(distanciaPontoPonto(camera_position_c,posicao_cesta)>= 12.0)
+                    pontos += 3;
+                pontos += 2;
+            }
+
+
+            //tB += 0.0013 * (1 + (1-forca));
+            tB += velocidadeBola;
+            if (tB > 0.98)
+            {
+                forca = 0.0f;
+                sentidoPerdido = scalarproduct(pBezierAntigo - pbezier,2);
+                ballpos = glm::vec4(bezierx,0.3f,bezierz,1.0);
+                bolaPerdida = true;
+                //sentidoPerdido *= 0.1;
                 trajetoria = false;
+                contaForca = true;
                 tB = 0.0f;
             }
 
 
             //glm::vec4 ballpos = camera_position_c + scalarproduct(camera_view_vector,15);
             model = Matrix_Translate(bezierx, beziery, bezierz)
-    //              * Matrix_Rotate_Z(0.0f)
-    //              * Matrix_Rotate_X(0.0f)
-    //              * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.01f)
+                  * Matrix_Rotate_Z(0.0f)
+                  * Matrix_Rotate_X(0.0f)
+                  * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.01f)
                   * Matrix_Scale(0.3,0.3,0.3);
             glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(object_id_uniform, SPHERE);
             DrawVirtualObject("sphere");
 
         }
-        else if(!arremessado && !trajetoria)
+        else if(!arremessado && !trajetoria && !bolaPerdida)
         {
-            glm::vec4 ballpos = camera_position_c + scalarproduct(camera_view_vector,15);
+            ballpos = camera_position_c + scalarproduct(camera_view_vector,15);
             model = Matrix_Translate(ballpos.x, ballpos.y - 0.8, ballpos.z)
     //              * Matrix_Rotate_Z(0.0f)
     //              * Matrix_Rotate_X(0.0f)
@@ -570,41 +752,78 @@ int main(int argc, char* argv[])
             glUniform1i(object_id_uniform, SPHERE);
             DrawVirtualObject("sphere");
         }
+        else if(!arremessado && !trajetoria && bolaPerdida)
+        {
+            //sentidoPerdido = scalarproduct(sentidoPerdido,0.98);
+            model = Matrix_Translate(ballpos.x + sentidoPerdido.x, ballpos.y + sentidoPerdido.y, ballpos.z + sentidoPerdido.z)
+                  * Matrix_Rotate_Z(0.0f)
+                  * Matrix_Rotate_X(0.0f)
+                  * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.01f)
+                  * Matrix_Scale(0.3,0.3,0.3);
+            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(object_id_uniform, SPHERE);
+            DrawVirtualObject("sphere");
+        }
 
+        if(bolaPerdida)
+        {
+            if(distanciaPontoPonto(camera_position_c,ballpos) <= 3.8)
+                bolaPerdida = false;
+        }
 
-        // Desenhamos o modelo do coelho
-//        model = Matrix_Translate(1.0f,0.0f,0.0f)
-//              * Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
-//        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-//        glUniform1i(object_id_uniform, BUNNY);
-//        DrawVirtualObject("bunny");
-
-        // Desenhamos o plano do chão
-        model = Matrix_Translate(0.0f,0.00f,0.0f) * Matrix_Scale(30.0f,30.0f,30.0f);
+        // Desenhamos o plano do chão de grama
+        model = Matrix_Translate(0.0f,0.0f,0.0f) * Matrix_Scale(150.0f,150.0f,150.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
+
+        //Desenhamos o plano do chão da quadra
+        model = Matrix_Translate(0.0f,0.002f,0.0f)
+              * Matrix_Rotate_Y(-1.5708f)
+              * Matrix_Scale(32.0f,1.0f,19.2f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, PLANE2);
         DrawVirtualObject("plane");
 
-        //ordem de operacao srt
 
         // Desenhamos a vaca
-        model = Matrix_Translate(0.0f,1.85f,0.0f) * Matrix_Scale(3.0f,3.0f,3.0f);
+        model = Matrix_Translate(-30.0f,1.85f,50.0f) * Matrix_Scale(3.0f,3.0f,3.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, COW);
         DrawVirtualObject("cow");
 
+        model = Matrix_Translate(-27.0f,1.85f,38.0f) * Matrix_Rotate_Y(1.0472f) * Matrix_Scale(2.8f,2.8f,2.8f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, COW2);
+        DrawVirtualObject("cow");
+
         //Desenhamos a cesta
-        model = Matrix_Translate(4.0f,0.0f,5.0f) * Matrix_Rotate_X(-1.5708f)* Matrix_Scale(0.020f,0.020f,0.020f);
+        model = Matrix_Translate(posicao_cesta.x,posicao_cesta.y,posicao_cesta.z) * Matrix_Rotate_X(-1.5708f)* Matrix_Scale(0.020f,0.020f,0.020f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, CESTA);
         DrawVirtualObject("cesta");
 
-        //Desenhamos o cubo
-//        model = Matrix_Scale(50.0f,50.0f,50.0f);
-//        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-//        glUniform1i(object_id_uniform, CUBEV);
-//        DrawVirtualObject("cubev");
+        //Desenhamos o balao
+
+        posicaoBalao.x = 75.0f*cos(velocidadeBalao);
+        posicaoBalao.z = 75.0f*sin(velocidadeBalao);
+
+        posicaoBalao.y = 16.0*sin(velocidadeBalao*0.5);
+        model = Matrix_Translate(posicaoBalao.x,30.0 + posicaoBalao.y ,posicaoBalao.z)
+        * Matrix_Rotate_X(-1.5708f)
+        * Matrix_Scale(0.002f,0.002f,0.002f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, BALOON);
+        DrawVirtualObject("baloon");
+        velocidadeBalao += 0.0001f;
+
+
+        //Desenhamos a montanha
+        model = Matrix_Translate(-40.0,-2.0,-130.0) * Matrix_Scale(50.0f,10.0f,10.0f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, MOUNTAIN);
+        DrawVirtualObject("mountain");
+
 
         // Pegamos um vértice com coordenadas de modelo (0.5, 0.5, 0.5, 1) e o
         // passamos por todos os sistemas de coordenadas armazenados nas
@@ -626,6 +845,8 @@ int main(int argc, char* argv[])
 
         TextRendering_ShowStrength(window);
 
+        TextRendering_ShowPontos(window);
+
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
         // seria possível ver artefatos conhecidos como "screen tearing". A
@@ -639,6 +860,11 @@ int main(int argc, char* argv[])
         // definidas anteriormente usando glfwSet*Callback() serão chamadas
         // pela biblioteca GLFW.
         glfwPollEvents();
+
+
+        endTime = (float)glfwGetTime();
+        delay = endTime - startTime;
+        //printf("delay = %.6f\n",delay );
     }
 
     // Finalizamos o uso dos recursos do sistema operacional
@@ -646,6 +872,182 @@ int main(int argc, char* argv[])
 
     // Fim do programa
     return 0;
+}
+
+void calculaTrajetoria()
+{
+    forca *= 0.25;
+
+    glm::vec4 amplitude = camera_up_vector;
+    amplitude = scalarproduct(amplitude, 7*forca);
+
+    //calcula primeiro ponto de controle da curva de bezier
+    pc0 = camera_position_c + scalarproduct(camera_view_vector,15);
+    pontosDeControle[0] = pc0;
+
+    //calcula segundo ponto de controle da curva de bezier
+    pc1 = pc0 + scalarproduct(camera_view_vector,50*forca);
+    pc1 += amplitude;
+    pontosDeControle[1] = pc1;
+
+    //calcula terceiro ponto de controle da curva de bezier
+    pc2 = pc1 + scalarproduct(camera_view_vector,50*forca);
+    pontosDeControle[2] = pc2;
+
+    //calcula quarto ponto de controle da curva de bezier
+    pc3 = pc2 +  scalarproduct(camera_view_vector,50*forca);
+    pc3 -= amplitude;
+    pc3.y = 0;
+    pontosDeControle[3] = pc3;
+
+    //sentidoPerdido = pc3 - pc0;
+}
+
+//Nova trajetoria calculada quando ocorre colisao
+void recalculaTrajetoria(glm::vec4 newDirection, glm::vec4 posicao, glm::vec4 planoNormal)
+{
+    if(norm(newDirection) > 0.00001)
+    {
+
+        forca *= 0.95;
+        tB = 0.0f;
+        newDirection = scalarproduct(normalize(newDirection),0.15*forca);
+
+        //nova direcao eh a a reflexao no plano da tabela
+        newDirection = scalarproduct(newDirection,-1.0) + scalarproduct(planoNormal,2.0*dotproduct(newDirection,planoNormal));
+
+
+        //newDirection *= (4*forca);
+
+        glm::vec4 amplitude = newDirection;
+        amplitude.y += forca;
+
+        //calcula primeiro ponto de controle da curva de bezier
+        //pc0 = posicao + scalarproduct(newDirection,2);
+        pc0 = posicao + newDirection;
+        pontosDeControle[0] = pc0;
+
+        //calcula segundo ponto de controle da curva de bezier
+        pc1 = pc0 + scalarproduct(newDirection,50*forca);
+        pc1 += amplitude;
+        pc1.y = std::max(0.3f,pc1.y);
+        pontosDeControle[1] = pc1;
+
+        //calcula terceiro ponto de controle da curva de bezier
+        pc2 = pc1 + scalarproduct(newDirection,50*forca);
+        pc2.y = std::max(0.3f,pc2.y);
+        pontosDeControle[2] = pc2;
+
+        //calcula quarto ponto de controle da curva de bezier
+        pc3 = pc2 +  scalarproduct(newDirection,50*forca);
+        pc3 -= amplitude;
+        pc3.y = 0;
+        pontosDeControle[3] = pc3;
+
+        //sentidoPerdido = pc3 - pc0;
+
+    }
+
+}
+
+bool pontoEmSemiPlano(glm::vec4 ponto, glm::vec4 planoPontos[])
+{
+    if(ponto.x >= planoPontos[0].x && ponto.x <= planoPontos[1].x && ponto.y >= planoPontos[0].y && ponto.y <= planoPontos[1].y)
+        return true;
+    return false;
+}
+
+bool detectaColisaoTabela(glm::vec4 ponto, glm::vec4 planoPontos[], glm::vec4 planoNormal, float raio)
+{
+    if(pontoEmSemiPlano(ponto, planoPontos))
+    {
+
+        glm::vec4 v = glm::vec4((ponto.x-planoPontos[0].x),(ponto.y-planoPontos[0].y),(ponto.z-planoPontos[0].z),0.0f);
+        float d = fabs(dotproduct(v,planoNormal));
+
+        if( d <= raio)
+        {
+            //printf("calculei %f\n\n",d);
+            return true;
+        }
+    }
+
+
+    return false;
+}
+
+int detectaColisaoAro(glm::vec4 ponto, glm::vec4 cestaPontos[], float raio)
+{
+    glm::vec4 semiPlano100 = cestaPontos[0];
+    glm::vec4 semPlano111  = glm::vec4(cestaPontos[0].x,cestaPontos[1].y,cestaPontos[1].z,1.0f);
+    if(ponto.y >= semiPlano100.y && ponto.y <= semPlano111.y && ponto.z >= semiPlano100.z && ponto.z <= semPlano111.z)
+    {
+        glm::vec4 v = glm::vec4((ponto.x-cestaPontos[0].x),(ponto.y-cestaPontos[0].y),(ponto.z-cestaPontos[0].z),0.0f);
+        float d = fabs(dotproduct(v,glm::vec4(1.0,0.0,0.0,0.0)));
+        if( d < raio)
+        {
+            return 0;
+        }
+
+    }
+
+
+    glm::vec4 semiPlano200 = glm::vec4(cestaPontos[0].x,cestaPontos[0].y,cestaPontos[1].z,1.0f);
+    glm::vec4 semiPlano211 = cestaPontos[1];
+    if(ponto.x >= semiPlano200.x && ponto.x <= semiPlano211.x && ponto.y >= semiPlano200.y && ponto.y <= semiPlano211.y)
+    {
+        glm::vec4 v = glm::vec4((ponto.x-cestaPontos[1].x),(ponto.y-cestaPontos[1].y),(ponto.z-cestaPontos[1].z),0.0f);
+        float d = fabs(dotproduct(v,glm::vec4(0.0,0.0,1.0,0.0)));
+        if( d < raio)
+        {
+
+            return 1;
+        }
+
+    }
+
+    glm::vec4 semiPlano300 = glm::vec4(cestaPontos[1].x,cestaPontos[0].y,cestaPontos[0].z,1.0f);
+    glm::vec4 semiPlano311 = cestaPontos[1];
+    if(ponto.y >= semiPlano300.y && ponto.y <= semiPlano311.y && ponto.z >= semiPlano300.z && ponto.z <= semiPlano311.z)
+    {
+        glm::vec4 v = glm::vec4((ponto.x-cestaPontos[1].x),(ponto.y-cestaPontos[1].y),(ponto.z-cestaPontos[1].z),0.0f);
+        float d = fabs(dotproduct(v,glm::vec4(1.0,0.0,0.0,0.0)));
+
+        if( d < raio)
+        {
+            return 0;
+        }
+
+    }
+
+    return 2;
+}
+
+
+
+bool pontoEmCubo(glm::vec4 ponto, glm::vec4 cestaPontos[])
+{
+    if(ponto.x >= cestaPontos[0].x && ponto.x <= cestaPontos[1].x && ponto.y >= cestaPontos[0].y && ponto.y <= cestaPontos[1].y && ponto.z >= cestaPontos[0].z && ponto.z <= cestaPontos[1].z)
+        return true;
+    return false;
+
+}
+bool detectaColisaoCesta(glm::vec4 ponto, glm::vec4 cestaPontos[], float raio)
+{
+    if(pontoEmCubo(ponto,cestaPontos))
+    {
+        glm::vec4 centroCesta = cestaPontos[0]+glm::vec4(0.5f,0.5f,0.5f,1.0f);
+        if(distanciaPontoPonto(ponto,centroCesta) <= 0.35)
+            return true;
+    }
+
+
+    return false;
+}
+
+float distanciaPontoPonto(glm::vec4 p1, glm::vec4 p2)
+{
+    return( sqrt(pow((p2.x-p1.x),2) + pow((p2.y-p1.y),2) + pow((p2.z-p1.z),2)) );
 }
 
 // Função que carrega uma imagem para ser utilizada como textura
@@ -733,6 +1135,7 @@ void DrawVirtualObject(const char* object_name)
     glBindVertexArray(0);
 }
 
+
 // Função que carrega os shaders de vértices e de fragmentos que serão
 // utilizados para renderização. Veja slides 217-219 do documento "Aula_03_Rendering_Pipeline_Grafico.pdf".
 //
@@ -784,6 +1187,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(program_id, "TextureImage3"), 3);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage4"), 4);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage5"), 5);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage6"), 6);
     glUseProgram(0);
 }
 
@@ -1201,7 +1605,7 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         // com o botão esquerdo pressionado.
         glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
         g_LeftMouseButtonPressed = true;
-        if(contaForca && !arremessado && !trajetoria)
+        if(contaForca && !arremessado && !trajetoria && !bolaPerdida)
         {
             showForca = true;
             forca = glfwGetTime();
@@ -1212,16 +1616,18 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
     }
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
-        forca = glfwGetTime() - forca;
-        forca = fmod(forca,4);
+        if(!arremessado && !trajetoria && !bolaPerdida)
+        {
+            forca = glfwGetTime() - forca;
+            forca = fmod(forca,4);
 
+            //iniciamos o calculo e percurso da bola no loop principal
+            arremessado = true;
+        }
         // Quando o usuário soltar o botão esquerdo do mouse, atualizamos a
         // variável abaixo para false.
         g_LeftMouseButtonPressed = false;
 
-
-        if(!arremessado && !trajetoria)
-            arremessado = true;
     }
     if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
     {
@@ -1393,7 +1799,23 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         g_TorsoPositionX = 0.0f;
         g_TorsoPositionY = 0.0f;
     }
+    // Se o usuário apertar a tecla Z, alteramos a camera para camera livre
+    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+    {
+        walkSimulation =  !walkSimulation;
 
+    }
+    //Se o usuário apertar a tecla E, aumentamos a velocidade de movimentacao
+    if (key == GLFW_KEY_E && action == GLFW_PRESS)
+    {
+        running =  true;
+
+    }
+    if (key == GLFW_KEY_E && action == GLFW_RELEASE)
+    {
+        running =  false;
+
+    }
     // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
     {
@@ -1419,29 +1841,46 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         fprintf(stdout,"Shaders recarregados!\n");
         fflush(stdout);
     }
-    if (key == GLFW_KEY_D && (action == GLFW_PRESS || action != GLFW_RELEASE ))
-    {
-        camera_position_c += camera_u_vector;
 
-        camera_desloc += camera_u_vector;
+    if (key == GLFW_KEY_D && action == GLFW_PRESS)
+    {
+        strafeRight = true;
     }
-    if (key == GLFW_KEY_W && (action == GLFW_PRESS || action != GLFW_RELEASE ))
+    if(key == GLFW_KEY_D && action == GLFW_RELEASE)
     {
-        camera_position_c += camera_view_vector;
-
-        camera_desloc += camera_view_vector;
+        strafeRight = false;
     }
-    if (key == GLFW_KEY_S && (action == GLFW_PRESS || action != GLFW_RELEASE ))
+    if (key == GLFW_KEY_W && action == GLFW_PRESS)
     {
-        camera_position_c -= camera_view_vector;
-
-        camera_desloc -= camera_view_vector;
+        walkingForward = true;
     }
-    if (key == GLFW_KEY_A && (action == GLFW_PRESS || action != GLFW_RELEASE ))
+    if (key == GLFW_KEY_W && action == GLFW_RELEASE)
     {
-        camera_position_c -= camera_u_vector;
+        walkingForward = false;
+    }
+    if (key == GLFW_KEY_S && action == GLFW_PRESS)
+    {
+        walkingBack = true;
 
-        camera_desloc -= camera_u_vector;
+    }
+    if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+    {
+        walkingBack = false;
+
+    }
+    if (key == GLFW_KEY_A && action == GLFW_PRESS)
+    {
+        strafeLeft = true;
+    }
+    if(key == GLFW_KEY_A && action == GLFW_RELEASE)
+    {
+        strafeLeft = false;
+    }
+    if(key == GLFW_KEY_L && action == GLFW_PRESS)
+    {
+        if(!lookAt)
+        lookAt = true;
+        else lookAt = false;
     }
 
     ///////////////////////////////////////
@@ -1550,6 +1989,16 @@ void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
     TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
 }
 
+void TextRendering_ShowPontos(GLFWwindow* window)
+{
+    static char  buffer[20] = "PONTOS: ??";
+    static int numchars = 10;
+    float lineheight = TextRendering_LineHeight(window);
+    numchars = snprintf(buffer, 20, "PONTOS: %d", pontos);
+
+    TextRendering_PrintString(window, buffer, 0.0f, 0.9f-lineheight, 1.5f);
+
+}
 void TextRendering_ShowStrength(GLFWwindow* window)
 {
     if(!showForca)

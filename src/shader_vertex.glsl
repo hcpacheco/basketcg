@@ -10,6 +10,13 @@ layout (location = 2) in vec2 texture_coefficients;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform int object_id;
+
+
+
+#define CESTA      5
+
+
 
 // Atributos de vértice que serão gerados como saída ("out") pelo Vertex Shader.
 // ** Estes serão interpolados pelo rasterizador! ** gerando, assim, valores
@@ -19,6 +26,9 @@ out vec4 position_world;
 out vec4 position_model;
 out vec4 normal;
 out vec2 texcoords;
+
+out vec3 corCesta;
+
 
 void main()
 {
@@ -63,5 +73,22 @@ void main()
 
     // Coordenadas de textura obtidas do arquivo OBJ (se existirem!)
     texcoords = texture_coefficients;
+
+    if(object_id == CESTA)
+    {
+                // normais de cada vértice.
+        vec4 n = normalize(normal);
+
+        // Vetor que define o sentido da fonte de luz em relação ao ponto atual.
+        vec4 l = normalize(vec4(2.5,2.5,4.0,0.0));
+        // Vetor que define o sentido da câmera em relação ao ponto atual.
+       // vec4 v = normalize(camera_position - p);
+
+        float lambert = max(0,dot(n,l));
+        corCesta = vec3(0.5,0.25,0.15) * (lambert);
+        //corCesta = vec3(1.0,1.0,1.0);
+
+    }
+
 }
 
