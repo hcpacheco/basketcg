@@ -73,6 +73,8 @@ glm::vec4 camera_lookat_lb;
 glm::vec4 camera_position_cb = glm::vec4(2.5f,3.5f,2.5f,1.0f);
 //irrklang::ISoundEngine *SoundEngine = irrklang::createIrrKlangDevice();
 
+float raioLA;
+
 bool walkingForward = false;
 bool walkingBack = false;
 bool strafeLeft = false;
@@ -82,7 +84,7 @@ bool lookAt = false;
 
 //controlada pelo input da tecla e
 bool running= false;
-float camera_speed = 2.5f;
+float camera_speed = 2.0f;
 
 //variavel usada para controlar a velocidade da animacao de acordo com fps
 float delay;
@@ -109,6 +111,10 @@ float tB = 0.0f;
 float velocidadeBola;
 bool contaForca;
 float forca;
+
+
+float distanciaPermitida = 90.0f;
+
 
 //variamos a posicao do balao em funcao do tempo
 glm::vec3 posicaoBalao;
@@ -499,10 +505,7 @@ int main(int argc, char* argv[])
         // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
         // e ScrollCallback().
         //float r = g_CameraDistance;
-        float r = 20.0f;
-        float y = r*sin(g_CameraPhi);
-        float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
-        float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
+
 
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 172-182 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
@@ -512,8 +515,13 @@ int main(int argc, char* argv[])
 //        camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
 //      alterado
         if(lookAt){
-            camera_position_cb  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-            camera_lookat_lb    = glm::vec4(0.5f,0.0f,-30.0f,1.0); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+            float y = raioLA*sin(g_CameraPhi);
+            y = std::max(0.5f,y);
+            float z = raioLA*cos(g_CameraPhi)*cos(g_CameraTheta);
+            float x = raioLA*cos(g_CameraPhi)*sin(g_CameraTheta);
+
+            camera_position_cb  = glm::vec4(x + posicao_cesta.x,y + posicao_cesta.y,z + posicao_cesta.z,1.0f); // Ponto "c", centro da câmera
+            camera_lookat_lb    = posicao_cesta; // Ponto "l", para onde a câmera (look-at) estará sempre olhando
             camera_view_vectorb = camera_lookat_lb - camera_position_cb; // Vetor "view", sentido para onde a câmera está virada
             //camera_view_vectorb.z = -1.0f * abs(camera_view_vectorb.z);
             camera_view_vectorb = camera_view_vectorb / norm(camera_view_vectorb);
@@ -525,6 +533,11 @@ int main(int argc, char* argv[])
             //camera_u_vector *= 0.1;
 
         }else{
+            float r = 20.0f;
+            float y = r*sin(g_CameraPhi);
+            float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
+            float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
+
             camera_lookat_l    = glm::vec4(x,y,z,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
             camera_lookat_l    += camera_desloc;
 
@@ -549,9 +562,13 @@ int main(int argc, char* argv[])
             if(walkSimulation)
                 step.y = 0.0;
 
-            camera_position_c += step*speedRatio;
+            //checa se esta dentro do limite
+            if((distanciaPontoPonto(glm::vec4(0.0,0.0,0.0,1.0), (camera_position_c+step*speedRatio)) < distanciaPermitida) || !walkSimulation)
+            {
+                camera_position_c += step*speedRatio;
 
-            camera_desloc += step*speedRatio;
+                camera_desloc += step*speedRatio;
+            }
 
         }
         if(walkingBack){
@@ -564,9 +581,13 @@ int main(int argc, char* argv[])
             if(walkSimulation)
                 step.y = 0.0;
 
-            camera_position_c -= step*speedRatio;
+            //checa se esta dentro do limite
+            if((distanciaPontoPonto(glm::vec4(0.0,0.0,0.0,1.0), (camera_position_c-step*speedRatio)) < distanciaPermitida) || !walkSimulation)
+            {
+                camera_position_c -= step*speedRatio;
 
-            camera_desloc -= step*speedRatio;
+                camera_desloc -= step*speedRatio;
+            }
 
         }
         if(strafeLeft){
@@ -576,9 +597,13 @@ int main(int argc, char* argv[])
             if(walkSimulation)
                 step.y = 0.0;
 
-            camera_position_c -= step*speedRatio;
+            //checa se esta dentro do limite
+            if((distanciaPontoPonto(glm::vec4(0.0,0.0,0.0,1.0), (camera_position_c-step*speedRatio)) < distanciaPermitida) || !walkSimulation)
+            {
+                camera_position_c -= step*speedRatio;
 
-            camera_desloc -= step*speedRatio;
+                camera_desloc -= step*speedRatio;
+            }
         }
         if(strafeRight){
             step = camera_u_vector;
@@ -586,10 +611,13 @@ int main(int argc, char* argv[])
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
                 step.y = 0.0;
+            //checa se esta dentro do limite
+            if((distanciaPontoPonto(glm::vec4(0.0,2.0,0.0,1.0), (camera_position_c+step*speedRatio)) < distanciaPermitida) || !walkSimulation)
+            {
+                camera_position_c += step*speedRatio;
 
-            camera_position_c += step*speedRatio;
-
-            camera_desloc += step*speedRatio;
+                camera_desloc += step*speedRatio;
+            }
 
         }
 
@@ -610,7 +638,7 @@ int main(int argc, char* argv[])
 
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 190-193 do documento "Aula_09_Projecoes.pdf".
-        float nearplane = -0.1f;  // Posição do "near plane"
+        float nearplane = -0.05f;  // Posição do "near plane"
         float farplane  = -450.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
@@ -627,7 +655,8 @@ int main(int argc, char* argv[])
             // PARA PROJEÇÃO ORTOGRÁFICA veja slide 236 do documento "Aula_09_Projecoes.pdf".
             // Para simular um "zoom" ortográfico, computamos o valor de "t"
             // utilizando a variável g_CameraDistance.
-            float t = 1.5f*g_CameraDistance/2.5f;
+            //float t = 1.5f*g_CameraDistance/2.5f;
+            float t = 1.3f*g_CameraDistance/1.0f;
             float b = -t;
             float r = t*g_ScreenRatio;
             float l = -r;
@@ -704,7 +733,7 @@ int main(int argc, char* argv[])
             }
 
             int aro = detectaColisaoAro(pbezier,cestaPontos,0.3f);
-            if(aro != 2 && nColidiuAro <= 2)
+            if(aro != 2 && nColidiuAro <= 3)
             {
 
                 glm::vec4 newDirection =   pBezierAntigo - pbezier;
@@ -726,7 +755,8 @@ int main(int argc, char* argv[])
                 contaPontos = false;
                 if(distanciaPontoPonto(camera_position_c,posicao_cesta)>= 12.0)
                     pontos += 3;
-                pontos += 2;
+                else
+                    pontos += 2;
             }
 
 
@@ -794,7 +824,7 @@ int main(int argc, char* argv[])
         DrawVirtualObject("plane");
 
         //Desenhamos o plano do chão da quadra
-        model = Matrix_Translate(0.0f,0.002f,0.0f)
+        model = Matrix_Translate(0.0f,0.004f,0.0f)
               * Matrix_Rotate_Y(-1.5708f)
               * Matrix_Scale(32.0f,1.0f,19.2f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -902,16 +932,16 @@ void calculaTrajetoria()
     pontosDeControle[0] = pc0;
 
     //calcula segundo ponto de controle da curva de bezier
-    pc1 = pc0 + scalarproduct(camera_view_vector,50*forca);
+    pc1 = pc0 + scalarproduct(camera_view_vector,55*forca);
     pc1 += amplitude;
     pontosDeControle[1] = pc1;
 
     //calcula terceiro ponto de controle da curva de bezier
-    pc2 = pc1 + scalarproduct(camera_view_vector,50*forca);
+    pc2 = pc1 + scalarproduct(camera_view_vector,55*forca);
     pontosDeControle[2] = pc2;
 
     //calcula quarto ponto de controle da curva de bezier
-    pc3 = pc2 +  scalarproduct(camera_view_vector,50*forca);
+    pc3 = pc2 +  scalarproduct(camera_view_vector,55*forca);
     pc3 -= amplitude;
     pc3.y = 0;
     pontosDeControle[3] = pc3;
@@ -1895,12 +1925,21 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if(key == GLFW_KEY_L && action == GLFW_PRESS)
     {
         if(!lookAt)
-        lookAt = true;
-        else lookAt = false;
-    }
+        {
+            lookAt = true;
+            raioLA = distanciaPontoPonto(camera_position_c,posicao_cesta);
+            camera_position_cb = camera_position_c;
+            contaForca = false;
+        }
+        else
+        {
+            lookAt = false;
+            contaForca = true;
+        }
 
     ///////////////////////////////////////
 
+    }
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal
