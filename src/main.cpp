@@ -84,7 +84,7 @@ bool walkingForward = false;
 bool walkingBack = false;
 bool strafeLeft = false;
 bool strafeRight = false;
-float speedRatio = 0.5f;
+float speedRatio = 0.1f;
 bool lookAt = false;
 
 //controlada pelo input da tecla e
@@ -95,19 +95,17 @@ float camera_speed = 2.0f;
 float delay;
 float startTime;
 float endTime;
+float frameControl = 0.00167; //variavel que pondera velocidade de animacao pelo framerate(resultado de 1/300)
 
 
 
 glm::vec4 posicao_cesta = glm::vec4(0.5f,0.0f,-30.0f,1.0);
 //Pontos de controle da curva de Bezier que define a trajetoria do objeto
-//glm::vec4 pc0 = glm::vec4(2.0f,0.0,2.0f,1.0f);
-//glm::vec4 pc1 = glm::vec4(1.95f,1.6f,1.8f,1.0f);
-//glm::vec4 pc2 = glm::vec4(-2.0f,1.6f,-1.8f,1.0f);
-//glm::vec4 pc3 = glm::vec4(-1.95f,0.0f,-2.0f,1.0f);
 glm::vec4 pc0;
 glm::vec4 pc1;
 glm::vec4 pc2;
 glm::vec4 pc3;
+//variaveis de controle da logica do arremesso
 bool arremessado;
 bool trajetoria;
 bool bolaPerdida;
@@ -116,7 +114,6 @@ float tB = 0.0f;
 float velocidadeBola;
 bool contaForca;
 float forca;
-
 
 float distanciaPermitida = 90.0f;
 
@@ -443,6 +440,9 @@ int main(int argc, char* argv[])
     trajetoria = false;
     bolaPerdida = false;
 
+    //testeframerate
+    int testeframerate;
+
     //Jogador comeca com 0 pontos
     pontos = 0;
 
@@ -548,13 +548,27 @@ int main(int argc, char* argv[])
             camera_u_vector *= 0.1;
         }
 
+        //TESTE FRAMERATE
+//        for(int i=0;i<10000000;i++)
+//        {
+//            testeframerate++;
+//        }
+
+
         //BOTOES
         if(walkingForward){
             step = camera_view_vector;
+            //ajustamos o tamanho do passo da camera de acordo com o framerate calculado
+            step += scalarproduct(step,((delay-frameControl)/frameControl) );
+
             if(running)
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
                 step.y = 0.0;
+
+            //teste de framerate
+            //printf("valor de multiplicacao: %.6f", ((delay-0.00238)/0.00238));
+            //printf("tamanho do delay: %.6f\n", delay-0.00238);
 
             //checa se esta dentro do limite
             if((distanciaPontoPonto(glm::vec4(0.0,0.0,0.0,1.0), (camera_position_c+step*speedRatio)) < distanciaPermitida) || !walkSimulation)
@@ -567,6 +581,8 @@ int main(int argc, char* argv[])
         }
         if(walkingBack){
             step = camera_view_vector;
+            //ajustamos o tamanho do passo da camera de acordo com o framerate calculado
+            step += scalarproduct(step,((delay-frameControl)/frameControl) );
             if(running)
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
@@ -583,6 +599,8 @@ int main(int argc, char* argv[])
         }
         if(strafeLeft){
             step = camera_u_vector;
+            //ajustamos o tamanho do passo da camera de acordo com o framerate calculado
+            step += scalarproduct(step,((delay-frameControl)/frameControl) );
             if(running)
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
@@ -598,10 +616,13 @@ int main(int argc, char* argv[])
         }
         if(strafeRight){
             step = camera_u_vector;
+            //ajustamos o tamanho do passo da camera de acordo com o framerate calculado
+            step += scalarproduct(step,((delay-frameControl)/frameControl) );
             if(running)
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
                 step.y = 0.0;
+
             //checa se esta dentro do limite
             if((distanciaPontoPonto(glm::vec4(0.0,2.0,0.0,1.0), (camera_position_c+step*speedRatio)) < distanciaPermitida) || !walkSimulation)
             {
@@ -668,7 +689,7 @@ int main(int argc, char* argv[])
               * Matrix_Rotate_Z(0.0f)
               * Matrix_Rotate_X(0.0f)
               * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.01f + 1.5708f)
-              * Matrix_Scale(150,150,170);
+              * Matrix_Scale(200,200,230);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, INVSPHERE);
         DrawVirtualObject("invsphere");
@@ -698,10 +719,10 @@ int main(int argc, char* argv[])
 
             float tB3 = pow((1-tB),3);
             float tB2 = pow((1-tB),2);
-            //velocidadeBola = 0.0024 - (0.0003*forca);
-            velocidadeBola = 0.0034 - (0.0003*forca);
+//            velocidadeBola = 0.00334 - (0.0002*forca);
+            velocidadeBola = 0.0023 - (0.00018*forca);
             //variamos a "velocidade" da bola conforme a variacao no fps
-            velocidadeBola += ((delay-0.00238)/delay )*velocidadeBola;
+            velocidadeBola += ((delay-frameControl)/frameControl )*velocidadeBola;
 
             glm::vec4 pBezierAntigo = pbezier;
 
@@ -782,7 +803,7 @@ int main(int argc, char* argv[])
             DrawVirtualObject("sphere");
 
         }
-        else if(!arremessado && !trajetoria && !bolaPerdida)
+        else if(!arremessado && !trajetoria && !bolaPerdida && !lookAt)
         {
             ballpos = camera_position_c + scalarproduct(camera_view_vector,15);
             model = Matrix_Translate(ballpos.x, ballpos.y - 0.8, ballpos.z)
@@ -814,7 +835,7 @@ int main(int argc, char* argv[])
         }
 
         // Desenhamos o plano do chão de grama
-        model = Matrix_Translate(0.0f,0.0f,0.0f) * Matrix_Scale(150.0f,150.0f,150.0f);
+        model = Matrix_Translate(0.0f,0.0f,0.0f) * Matrix_Scale(200.0f,200.0f,200.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
@@ -860,8 +881,13 @@ int main(int argc, char* argv[])
         velocidadeBalao += 0.0001f;
 
 
-        //Desenhamos a montanha
+        //Desenhamos as montanhas
         model = Matrix_Translate(-40.0,-2.0,-130.0) * Matrix_Scale(50.0f,10.0f,10.0f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, MOUNTAIN);
+        DrawVirtualObject("mountain");
+
+        model = Matrix_Translate(140.0,-4.0,-130.0) * Matrix_Scale(10.0f,10.0f,50.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, MOUNTAIN);
         DrawVirtualObject("mountain");
@@ -972,12 +998,14 @@ void recalculaTrajetoria(glm::vec4 newDirection, glm::vec4 posicao, glm::vec4 pl
         //calcula segundo ponto de controle da curva de bezier
         pc1 = pc0 + scalarproduct(newDirection,50*forca);
         pc1 += amplitude;
-        pc1.y = std::max(0.3f,pc1.y);
+        if(pc1.y <= 0.3)
+            pc1.y = 0.3;
         pontosDeControle[1] = pc1;
 
         //calcula terceiro ponto de controle da curva de bezier
         pc2 = pc1 + scalarproduct(newDirection,50*forca);
-        pc2.y = std::max(0.3f,pc2.y);
+        if(pc1.y <= 0.3)
+            pc1.y = 0.3;;
         pontosDeControle[2] = pc2;
 
         //calcula quarto ponto de controle da curva de bezier
