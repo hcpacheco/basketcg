@@ -125,6 +125,8 @@ float velocidadeBalao = 0.0f;
 
 bool walkSimulation = true;
 
+bool tocouNaVaca = false;
+
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
 struct ObjModel
@@ -482,6 +484,11 @@ int main(int argc, char* argv[])
     glm::vec4 cestaPonto00 = model*glm::vec4(0.0f,0.0f,0.0f,1.0f);
     glm::vec4 cestaPonto11 = model*glm::vec4(1.0f,1.0f,1.0f,1.0f);
     glm::vec4 cestaPontos[] = {cestaPonto00,cestaPonto11};
+    //posicao vaca = -30.0f,1.85f,50.0f, 1.0
+    model = Matrix_Translate(-30.0f,1.85f,50.0f)*Matrix_Scale(30.0f,30.0f,30.0f);
+    glm::vec4 vacaPonto00 = model*glm::vec4(0.0f,0.0f,0.0f,1.0f);
+    glm::vec4 vacaPonto11 = model*glm::vec4(1.0f,1.0f,1.0f,1.0f);
+    glm::vec4 vacaPontos[] = {vacaPonto00,vacaPonto11};
     SoundEngine->play2D("../../data/maintheme.mp3", GL_TRUE);
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -675,6 +682,16 @@ int main(int argc, char* argv[])
             projection = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
         }
 
+        if(pontoEmCubo(camera_position_c, vacaPontos) && !tocouNaVaca){
+
+                tocouNaVaca = true;
+                SoundEngine->play2D("../../data/moo.mp3", GL_FALSE);
+                //printf("MOOOOOOOO\n");
+
+        }
+        if(!pontoEmCubo(camera_position_c, vacaPontos)){
+           tocouNaVaca = false;
+        }
         model = Matrix_Identity(); // Transformação identidade de modelagem
 
         // Enviamos as matrizes "view" e "projection" para a placa de vídeo
@@ -745,6 +762,8 @@ int main(int argc, char* argv[])
             }
 
             int aro = detectaColisaoAro(pbezier,cestaPontos,0.3f);
+
+
             if(aro != 2 && nColidiuAro <= 3)
             {
 
