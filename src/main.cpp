@@ -134,7 +134,7 @@ float velocidadeBalao = 0.0f;
 
 bool walkSimulation = true;
 
-bool tocouNaVaca = false;
+bool tocouNoBalao = false;
 
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
@@ -217,6 +217,7 @@ bool detectaColisaoCesta(glm::vec4 ponto, glm::vec4 cestaPontos[], float raio);
 bool pontoEmCubo(glm::vec4 ponto, glm::vec4 cestaPontos[]);
 float distanciaPontoPonto(glm::vec4 p1, glm::vec4 p2);
 int detectaColisaoAro(glm::vec4 ponto, glm::vec4 cestaPontos[], float raio);
+bool bateuNoBalao();
 
 bool naoColidiuTabela;
 int nColidiuAro;
@@ -491,13 +492,9 @@ int main(int argc, char* argv[])
     //Salvamos dados da posicao de um cubo ao redor da cesta para calculo de colisao
     model = Matrix_Translate(posicao_cesta.x-0.8,posicao_cesta.y+5.15,posicao_cesta.z+1.3)*Matrix_Scale(0.85f,0.85f,0.85f);
     glm::vec4 cestaPonto00 = model*glm::vec4(0.0f,0.0f,0.0f,1.0f);
-    glm::vec4 cestaPonto11 = model*glm::vec4(1.0f,1.0f,1.0f,1.0f);
+    glm::vec4 cestaPonto11 = model*glm::vec4(1.0f,1.0f,1.0f, 1.0f);
     glm::vec4 cestaPontos[] = {cestaPonto00,cestaPonto11};
-    //posicao vaca = -30.0f,1.85f,50.0f, 1.0
-    model = Matrix_Translate(-30.0f,1.85f,50.0f)*Matrix_Scale(30.0f,30.0f,30.0f);
-    glm::vec4 vacaPonto00 = model*glm::vec4(0.0f,0.0f,0.0f,1.0f);
-    glm::vec4 vacaPonto11 = model*glm::vec4(1.0f,1.0f,1.0f,1.0f);
-    glm::vec4 vacaPontos[] = {vacaPonto00,vacaPonto11};
+
     SoundEngine->play2D("../../data/maintheme.mp3", GL_TRUE);
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -691,7 +688,7 @@ int main(int argc, char* argv[])
             projection = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
         }
 
-        if(pontoEmCubo(camera_position_c, vacaPontos) && !tocouNaVaca){
+        /*if(pontoEmCubo(camera_position_c, vacaPontos) && !tocouNaVaca){
 
                 tocouNaVaca = true;
                 SoundEngine->play2D("../../data/moo.mp3", GL_FALSE);
@@ -700,7 +697,7 @@ int main(int argc, char* argv[])
         }
         if(!pontoEmCubo(camera_position_c, vacaPontos)){
            tocouNaVaca = false;
-        }
+        }*/
         model = Matrix_Identity(); // Transformação identidade de modelagem
 
         // Enviamos as matrizes "view" e "projection" para a placa de vídeo
@@ -869,7 +866,7 @@ int main(int argc, char* argv[])
         DrawVirtualObject("plane");
 
         //Desenhamos o plano do chão da quadra
-        model = Matrix_Translate(0.0f,0.004f,0.0f)
+        model = Matrix_Translate(0.0f,0.04f,0.0f)
               * Matrix_Rotate_Y(-1.5708f)
               * Matrix_Scale(32.0f,1.0f,19.2f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -963,6 +960,20 @@ int main(int argc, char* argv[])
         velocidadeBalao += 0.0001f;
 
 
+        if(bateuNoBalao()&& !tocouNoBalao){
+
+            tocouNoBalao = true;
+
+                if(!SoundEngine->isCurrentlyPlaying("../../data/scream.mp3")){
+                    SoundEngine->play2D("../../data/scream.mp3", GL_FALSE);
+                    pontos += 10;
+                }
+        }
+        if(!bateuNoBalao()){
+           tocouNoBalao = false;
+        }
+
+
         //Desenhamos as montanhas
         model = Matrix_Translate(-40.0,-2.0,-130.0) * Matrix_Scale(50.0f,10.0f,10.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -1024,11 +1035,23 @@ int main(int argc, char* argv[])
     return 0;
 }
 
+bool bateuNoBalao()
+{
+    glm::vec4 b = glm::vec4(posicaoBalao.x,33.0f+posicaoBalao.y,posicaoBalao.z,1.0);
+    if(distanciaPontoPonto(pbezier,b) <= 3.0f)
+    {
+         return true;
+
+    }
+
+    return false;
+}
+
 bool colisaoVaca1()
 {
     if((distanciaPontoPonto(camera_position_c,glm::vec4(-30.0f,1.85f,50.0f,1.0)) <= 5.0) && !movimentoVaca1)
     {
-         SoundEngine->play2D("../../data/cow2.mp3", GL_FALSE);
+         SoundEngine->play2D("../../data/moo.mp3", GL_FALSE);
          movimentoVaca1 = true;
          rotacionaVaca1 = 0.0f;
          return true;
