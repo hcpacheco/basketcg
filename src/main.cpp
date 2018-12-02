@@ -739,7 +739,8 @@ int main(int argc, char* argv[])
                 contaPontos = false;
                 if(distanciaPontoPonto(camera_position_c,posicao_cesta)>= 12.0)
                     pontos += 3;
-                pontos += 2;
+                else
+                    pontos += 2;
             }
 
 
