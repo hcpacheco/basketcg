@@ -51,7 +51,13 @@
 #include "utils.h"
 #include "matrices.h"
 
+#ifdef _WIN32
+#include<windows.h>
+#include<mmsystem.h>
+#endif
+#include <sound/irrKlang.h>
 
+irrklang::ISoundEngine *SoundEngine = irrklang::createIrrKlangDevice();
 // Variáveis que definem a câmera em coordenadas esféricas, controladas pelo
 // usuário através do mouse (veja função CursorPosCallback()). A posição
 // efetiva da câmera é calculada dentro da função main(), dentro do loop de
@@ -68,10 +74,9 @@ glm::vec4 camera_desloc = glm::vec4(0.0f,0.0,0.0f,0.0f);
 glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
 glm::vec4 step;
 
+glm::vec4 camera_position_cb = glm::vec4(0.5f,0.0f,-30.0f,1.0);
 glm::vec4 camera_view_vectorb;
 glm::vec4 camera_lookat_lb;
-glm::vec4 camera_position_cb = glm::vec4(2.5f,3.5f,2.5f,1.0f);
-//irrklang::ISoundEngine *SoundEngine = irrklang::createIrrKlangDevice();
 
 float raioLA;
 
@@ -477,10 +482,11 @@ int main(int argc, char* argv[])
     glm::vec4 cestaPonto00 = model*glm::vec4(0.0f,0.0f,0.0f,1.0f);
     glm::vec4 cestaPonto11 = model*glm::vec4(1.0f,1.0f,1.0f,1.0f);
     glm::vec4 cestaPontos[] = {cestaPonto00,cestaPonto11};
-
+    SoundEngine->play2D("../../data/maintheme.mp3", GL_TRUE);
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
+
         startTime = (float)glfwGetTime();
         // Aqui executamos as operações de renderização
 
@@ -523,15 +529,6 @@ int main(int argc, char* argv[])
             camera_position_cb  = glm::vec4(x + posicao_cesta.x,y + posicao_cesta.y,z + posicao_cesta.z,1.0f); // Ponto "c", centro da câmera
             camera_lookat_lb    = posicao_cesta; // Ponto "l", para onde a câmera (look-at) estará sempre olhando
             camera_view_vectorb = camera_lookat_lb - camera_position_cb; // Vetor "view", sentido para onde a câmera está virada
-            //camera_view_vectorb.z = -1.0f * abs(camera_view_vectorb.z);
-            camera_view_vectorb = camera_view_vectorb / norm(camera_view_vectorb);
-            //glm::vec4 camera_w_vector = -camera_view_vectorb;
-            //camera_view_vectorb *= 0.1;
-
-            //camera_u_vector = crossproduct(camera_up_vector,camera_w_vector);
-            //camera_u_vector = camera_u_vector / norm(camera_u_vector);
-            //camera_u_vector *= 0.1;
-
         }else{
             float r = 20.0f;
             float y = r*sin(g_CameraPhi);
@@ -553,10 +550,7 @@ int main(int argc, char* argv[])
 
         //BOTOES
         if(walkingForward){
-            if(!lookAt)
             step = camera_view_vector;
-            else
-                step = camera_view_vectorb;
             if(running)
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
@@ -572,10 +566,7 @@ int main(int argc, char* argv[])
 
         }
         if(walkingBack){
-            if(!lookAt)
             step = camera_view_vector;
-            else
-                step = camera_view_vectorb;
             if(running)
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
@@ -629,7 +620,7 @@ int main(int argc, char* argv[])
         if(!lookAt)
             view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
         else
-            view = Matrix_Camera_View(camera_position_c, camera_view_vectorb, camera_up_vector);
+            view = Matrix_Camera_View(camera_position_cb, camera_view_vectorb, camera_up_vector);
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
@@ -753,10 +744,15 @@ int main(int argc, char* argv[])
             if(detectaColisaoCesta(pbezier,cestaPontos,0.3f) && contaPontos)
             {
                 contaPontos = false;
-                if(distanciaPontoPonto(camera_position_c,posicao_cesta)>= 12.0)
+                if(distanciaPontoPonto(camera_position_c,posicao_cesta)>= 12.0){
                     pontos += 3;
-                else
+                    SoundEngine->play2D("../../data/mlg.mp3", GL_FALSE);
+                }
+                else{
                     pontos += 2;
+                    SoundEngine->play2D("../../data/yeah.mp3", GL_FALSE);
+                }
+
             }
 
 
@@ -1665,7 +1661,7 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         if(!arremessado && !trajetoria && !bolaPerdida)
         {
             forca = glfwGetTime() - forca;
-            forca = fmod(forca,4);
+            //forca = fmod(forca,4);
 
             //iniciamos o calculo e percurso da bola no loop principal
             arremessado = true;
@@ -2063,7 +2059,7 @@ void TextRendering_ShowStrength(GLFWwindow* window)
     static int numchars = 10;
     float lineheight = TextRendering_LineHeight(window);
     float charwidth = TextRendering_CharWidth(window)*4;
-    numchars = snprintf(buffer, 20, "FORCA: %.2f", fmod((glfwGetTime() - forca),4)/4);
+    numchars = snprintf(buffer, 20, "FORCA: %.2f", glfwGetTime() - forca);//fmod((glfwGetTime() - forca),4)/4
 
     TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 0.5f-lineheight, 1.0f);
 }

@@ -24,7 +24,7 @@
 	<inttypes.h>
 	<stdint.h>
 
-1543713005 source:c:\users\paulo ramos\documents\ufrgs\fcg\trabfcg\basketcg\src\main.cpp
+1543771381 source:c:\users\paulo ramos\documents\ufrgs\fcg\trabfcg\basketcg\src\main.cpp
 	<cmath>
 	<cstdio>
 	<cstdlib>
@@ -47,6 +47,9 @@
 	<stb_image.h>
 	"utils.h"
 	"matrices.h"
+	<windows.h>
+	<mmsystem.h>
+	<sound/irrKlang.h>
 
 1541506884 c:\users\paulo ramos\documents\ufrgs\fcg\trabfcg\basketcg\include\glfw\glfw3.h
 	<stddef.h>
