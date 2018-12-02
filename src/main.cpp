@@ -5,7 +5,7 @@
 //    INF01047 Fundamentos de Computação Gráfica
 //               Prof. Eduardo Gastal
 //
-//                   LABORATÓRIO 5
+//        Trabalho final - Basquete CG
 //
 
 // Arquivos "headers" padrões de C podem ser incluídos em um
@@ -97,6 +97,8 @@ float startTime;
 float endTime;
 float frameControl = 0.00167; //variavel que pondera velocidade de animacao pelo framerate(resultado de 1/300)
 
+//controle do mouse
+bool clicado;
 
 
 glm::vec4 posicao_cesta = glm::vec4(0.5f,0.0f,-30.0f,1.0);
@@ -859,8 +861,6 @@ int main(int argc, char* argv[])
 
 
         //Desenhamos as vacas
-        //printf("colisao %B\n", colisaoVaca1());
-        //printf("movimento %B\n\n", movimentoVaca1);
         if(!colisaoVaca1() && !movimentoVaca1)
         {
             // Desenhamos a vaca 1
@@ -876,7 +876,6 @@ int main(int argc, char* argv[])
         {
             // Desenhamos a vaca 2
             model = Matrix_Translate(-27.0f,1.85f,38.0f)
-            * Matrix_Rotate_Z(rotacionaVaca1)
             * Matrix_Rotate_Y(1.0472f)
             * Matrix_Scale(2.8f,2.8f,2.8f);
             glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -1786,19 +1785,21 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
             showForca = true;
             forca = glfwGetTime();
             contaForca = false;
+            clicado = true;
         }
 
 
     }
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
-        if(!arremessado && !trajetoria && !bolaPerdida)
+        if(!arremessado && !trajetoria && !bolaPerdida && clicado)
         {
             forca = glfwGetTime() - forca;
             //forca = fmod(forca,4);
 
             //iniciamos o calculo e percurso da bola no loop principal
             arremessado = true;
+            clicado = false;
         }
         // Quando o usuário soltar o botão esquerdo do mouse, atualizamos a
         // variável abaixo para false.
