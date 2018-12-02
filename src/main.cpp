@@ -1050,7 +1050,7 @@ bool colisaoVaca1()
 {
     if((distanciaPontoPonto(camera_position_c,glm::vec4(-30.0f,1.85f,50.0f,1.0)) <= 5.0) && !movimentoVaca1)
     {
-         SoundEngine->play2D("../../data/moo.mp3", GL_FALSE);
+         SoundEngine->play2D("../../data/cow2.mp3", GL_FALSE);
          movimentoVaca1 = true;
          rotacionaVaca1 = 0.0f;
          return true;
@@ -1071,21 +1071,6 @@ bool colisaoVaca2()
         return true;
     }
     return false;
-}
-
-//void naoColisaoVacas()
-//{
-//    if(distanciaPontoPonto(camera_position_c,glm::vec4(-30.0f,1.85f,50.0f,1.0))> 10.0)
-//    {
-//        return true;
-//    }
-//    return false;
-//}
-
-bool naoColisaoVaca2()
-{
-
-
 }
 
 
