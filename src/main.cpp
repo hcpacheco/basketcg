@@ -5,7 +5,7 @@
 //    INF01047 Fundamentos de Computação Gráfica
 //               Prof. Eduardo Gastal
 //
-//                   LABORATÓRIO 5
+//                   Trabalho final - Basquete CG
 //
 
 // Arquivos "headers" padrões de C podem ser incluídos em um
@@ -116,6 +116,15 @@ bool contaForca;
 float forca;
 
 float distanciaPermitida = 90.0f;
+
+
+//variaveis de controle das vacas
+float rotacionaVaca1;
+float rotacionaVaca2;
+bool movimentoVaca1 = false;
+bool movimentoVaca2 = false;
+bool colisaoVaca1();
+bool colisaoVaca2();
 
 
 //variamos a posicao do balao em funcao do tempo
@@ -849,16 +858,70 @@ int main(int argc, char* argv[])
         DrawVirtualObject("plane");
 
 
-        // Desenhamos a vaca
-        model = Matrix_Translate(-30.0f,1.85f,50.0f) * Matrix_Scale(3.0f,3.0f,3.0f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, COW);
-        DrawVirtualObject("cow");
+        //Desenhamos as vacas
+        //printf("colisao %B\n", colisaoVaca1());
+        //printf("movimento %B\n\n", movimentoVaca1);
+        if(!colisaoVaca1() && !movimentoVaca1)
+        {
+            // Desenhamos a vaca 1
+            model = Matrix_Translate(-30.0f,1.85f,50.0f) * Matrix_Scale(3.0f,3.0f,3.0f);
+            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(object_id_uniform, COW);
+            DrawVirtualObject("cow");
 
-        model = Matrix_Translate(-27.0f,1.85f,38.0f) * Matrix_Rotate_Y(1.0472f) * Matrix_Scale(2.8f,2.8f,2.8f);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, COW2);
-        DrawVirtualObject("cow");
+        }
+
+
+        if(!colisaoVaca2() && !movimentoVaca2)
+        {
+            // Desenhamos a vaca 2
+            model = Matrix_Translate(-27.0f,1.85f,38.0f)
+            * Matrix_Rotate_Z(rotacionaVaca1)
+            * Matrix_Rotate_Y(1.0472f)
+            * Matrix_Scale(2.8f,2.8f,2.8f);
+            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(object_id_uniform, COW2);
+            DrawVirtualObject("cow");
+        }
+
+        if(movimentoVaca1)
+        {
+            model = Matrix_Translate(-30.0f,1.85f,50.0f)
+            * Matrix_Rotate_Z(rotacionaVaca1)
+            * Matrix_Scale(3.0f,3.0f,3.0f);
+            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(object_id_uniform, COW);
+            DrawVirtualObject("cow");
+
+            rotacionaVaca1 += 0.02;
+
+            if(rotacionaVaca1 > 6.283)
+            {
+                movimentoVaca1 = false;
+                rotacionaVaca1 = 0.0;
+            }
+
+        }
+
+        if(movimentoVaca2)
+        {
+            model = Matrix_Translate(-27.0f,1.85f,38.0f)
+            * Matrix_Rotate_Z(rotacionaVaca2)
+            * Matrix_Rotate_Y(1.0472f)
+            * Matrix_Scale(2.8f,2.8f,2.8f);
+            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(object_id_uniform, COW2);
+            DrawVirtualObject("cow");
+
+            rotacionaVaca2 += 0.02;
+            if(rotacionaVaca2 > 6.283)
+            {
+                movimentoVaca2 = false;
+                rotacionaVaca2 = 0.0;
+            }
+
+        }
+
 
         //Desenhamos a cesta
         model = Matrix_Translate(posicao_cesta.x,posicao_cesta.y,posicao_cesta.z) * Matrix_Rotate_X(-1.5708f)* Matrix_Scale(0.020f,0.020f,0.020f);
@@ -941,6 +1004,47 @@ int main(int argc, char* argv[])
     // Fim do programa
     return 0;
 }
+
+bool colisaoVaca1()
+{
+    if((distanciaPontoPonto(camera_position_c,glm::vec4(-30.0f,1.85f,50.0f,1.0)) <= 5.0) && !movimentoVaca1)
+    {
+         movimentoVaca1 = true;
+         rotacionaVaca1 = 0.0f;
+         return true;
+
+    }
+
+    return false;
+}
+
+
+bool colisaoVaca2()
+{
+    if((distanciaPontoPonto(camera_position_c,glm::vec4(-27.0f,1.85f,38.0f,1.0))<= 5.0) && !movimentoVaca2)
+    {
+        movimentoVaca2 = true;
+        rotacionaVaca2 = 0.0f;
+        return true;
+    }
+    return false;
+}
+
+//void naoColisaoVacas()
+//{
+//    if(distanciaPontoPonto(camera_position_c,glm::vec4(-30.0f,1.85f,50.0f,1.0))> 10.0)
+//    {
+//        return true;
+//    }
+//    return false;
+//}
+
+bool naoColisaoVaca2()
+{
+
+
+}
+
 
 void calculaTrajetoria()
 {
