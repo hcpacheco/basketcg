@@ -68,9 +68,10 @@ glm::vec4 camera_desloc = glm::vec4(0.0f,0.0,0.0f,0.0f);
 glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
 glm::vec4 step;
 
-glm::vec4 camera_position_cb = glm::vec4(0.5f,0.0f,-30.0f,1.0);
 glm::vec4 camera_view_vectorb;
 glm::vec4 camera_lookat_lb;
+glm::vec4 camera_position_cb = glm::vec4(2.5f,3.5f,2.5f,1.0f);
+//irrklang::ISoundEngine *SoundEngine = irrklang::createIrrKlangDevice();
 
 bool walkingForward = false;
 bool walkingBack = false;
@@ -514,6 +515,15 @@ int main(int argc, char* argv[])
             camera_position_cb  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
             camera_lookat_lb    = glm::vec4(0.5f,0.0f,-30.0f,1.0); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
             camera_view_vectorb = camera_lookat_lb - camera_position_cb; // Vetor "view", sentido para onde a câmera está virada
+            //camera_view_vectorb.z = -1.0f * abs(camera_view_vectorb.z);
+            camera_view_vectorb = camera_view_vectorb / norm(camera_view_vectorb);
+            //glm::vec4 camera_w_vector = -camera_view_vectorb;
+            //camera_view_vectorb *= 0.1;
+
+            //camera_u_vector = crossproduct(camera_up_vector,camera_w_vector);
+            //camera_u_vector = camera_u_vector / norm(camera_u_vector);
+            //camera_u_vector *= 0.1;
+
         }else{
             camera_lookat_l    = glm::vec4(x,y,z,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
             camera_lookat_l    += camera_desloc;
@@ -530,7 +540,10 @@ int main(int argc, char* argv[])
 
         //BOTOES
         if(walkingForward){
+            if(!lookAt)
             step = camera_view_vector;
+            else
+                step = camera_view_vectorb;
             if(running)
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
@@ -542,7 +555,10 @@ int main(int argc, char* argv[])
 
         }
         if(walkingBack){
+            if(!lookAt)
             step = camera_view_vector;
+            else
+                step = camera_view_vectorb;
             if(running)
                 step = scalarproduct(step, camera_speed);
             if(walkSimulation)
@@ -585,7 +601,7 @@ int main(int argc, char* argv[])
         if(!lookAt)
             view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
         else
-            view = Matrix_Camera_View(camera_position_cb, camera_view_vectorb, camera_up_vector);
+            view = Matrix_Camera_View(camera_position_c, camera_view_vectorb, camera_up_vector);
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
