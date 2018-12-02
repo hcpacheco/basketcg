@@ -5,7 +5,7 @@
 //    INF01047 Fundamentos de Computação Gráfica
 //               Prof. Eduardo Gastal
 //
-//                   Trabalho final - Basquete CG
+//                   LABORATÓRIO 5
 //
 
 // Arquivos "headers" padrões de C podem ser incluídos em um
@@ -1009,6 +1009,7 @@ bool colisaoVaca1()
 {
     if((distanciaPontoPonto(camera_position_c,glm::vec4(-30.0f,1.85f,50.0f,1.0)) <= 5.0) && !movimentoVaca1)
     {
+         SoundEngine->play2D("../../data/cow2.mp3", GL_FALSE);
          movimentoVaca1 = true;
          rotacionaVaca1 = 0.0f;
          return true;
@@ -1023,6 +1024,7 @@ bool colisaoVaca2()
 {
     if((distanciaPontoPonto(camera_position_c,glm::vec4(-27.0f,1.85f,38.0f,1.0))<= 5.0) && !movimentoVaca2)
     {
+        SoundEngine->play2D("../../data/cow1.mp3", GL_FALSE);
         movimentoVaca2 = true;
         rotacionaVaca2 = 0.0f;
         return true;
